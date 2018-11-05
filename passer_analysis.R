@@ -1,6 +1,6 @@
 ##RUN cleaning.R before this
 #Sets directory to my folder to load data set
-setwd("/Users/Tejas/Desktop/Kings_Project/")
+#setwd("/Users/Tejas/Desktop/Kings_Project/")
 #Loads fullcourt template
 #Originally from Rajiv Shah: GitHub @rajshah4
 source("_function_fullcourt.R")
@@ -10,6 +10,40 @@ cleaned <- read.csv("cleaned_data.csv")
 cleaned <- cleaned[,-c(1)]
 
 players <- read.csv("players.csv")
+
+
+
+transformRightBaskets <- function(df) {
+  #if(df$offense_basket == 'R') {
+    df$new_passx <- 94 - df$pass_x
+    df$new_passy<-50 - df$pass_y
+    df$new_shotx<-94 - df$new_shotx
+    df$new_shoty<-50 - df$new_shoty
+    df$new_possx<-94 - df$poss_x
+    df$new_possy<-50 - df$poss_y
+  #}
+ #  #else {
+ #    df$new_passx<-df$pass_x
+ #    df$new_passy<-df$pass_y
+ #    df$new_shotx<-df$new_shotx
+ #    df$new_shoty<-df$new_shoty
+ #    df$new_possx<-df$poss_x
+ #    df$new_possy<-df$poss_y
+ # # }
+  return(df)
+}
+
+subsetR <- subset[which(subset$offense_basket == 'R'),]
+subsetR$pass_x <- 94 - subsetR$pass_x
+subsetR$pass_y<-50 - subsetR$pass_y
+subsetR$shot_x<-94 - subsetR$shot_x
+subsetR$shot_y<-50 - subsetR$shot_y
+subsetR$poss_x<-94 - subsetR$poss_x
+subsetR$poss_y<-50 - subsetR$poss_y
+
+#cleaned_transformed <- transformRightBaskets(subsetR)
+
+
 
 #Enter player name as a string or player_id
 #Creates DF of all records of player as a PASSER
@@ -222,6 +256,7 @@ getShooterFGinArea <- function() {
   pass_from <- 'null'
   pass_to <- 'null'
   shooter_fg_in_area <- 'null'
+  #shot_count <- 'null'
   
   for(i in 1:nrow(areas)) {
     #get pass area
@@ -256,13 +291,33 @@ getShooterFGinArea <- function() {
 
 getFG_pass_from <- function() {
   #get FG pct of all shots when player passed from area on court
-  passfrom_top <<- mean(areas[which(areas$V39 == 'top_key'),31])
-  passfrom_lw <<- mean(areas[which(areas$V39 == 'left_wing'),31])
-  passfrom_rw <<- mean(areas[which(areas$V39 == 'right_wing'),31])
-  passfrom_lc <<- mean(areas[which(areas$V39 == 'left_corner'),31])
-  passfrom_rc <<- mean(areas[which(areas$V39 == 'right_corner'),31])
-  passfrom_lp <<- mean(areas[which(areas$V39 == 'low_post'),31])
-  passfrom_hp <<- mean(areas[which(areas$V39 == 'high_post'),31])
+  passfrom_top <- mean(areas[which(areas$V39 == 'top_key'),31])
+  passfrom_lw <- mean(areas[which(areas$V39 == 'left_wing'),31])
+  passfrom_rw <- mean(areas[which(areas$V39 == 'right_wing'),31])
+  passfrom_lc <- mean(areas[which(areas$V39 == 'left_corner'),31])
+  passfrom_rc <- mean(areas[which(areas$V39 == 'right_corner'),31])
+  passfrom_lp <- mean(areas[which(areas$V39 == 'low_post'),31])
+  passfrom_hp <- mean(areas[which(areas$V39 == 'high_post'),31])
+  
+  countfrom_top <- nrow(areas[which(areas$V39 == 'top_key'),])
+  countfrom_lw <- nrow(areas[which(areas$V39 == 'left_wing'),])
+  countfrom_rw <- nrow(areas[which(areas$V39 == 'right_wing'),])
+  countfrom_lc <- nrow(areas[which(areas$V39 == 'left_corner'),])
+  countfrom_rc <- nrow(areas[which(areas$V39 == 'right_corner'),])
+  countfrom_lp <- nrow(areas[which(areas$V39 == 'low_post'),])
+  countfrom_hp <- nrow(areas[which(areas$V39 == 'high_post'),])
+  
+  topofkey  <- c(passfrom_top, countfrom_top)
+  leftwing  <- c(passfrom_lw, countfrom_lw)
+  rightwing  <- c(passfrom_rw, countfrom_rw)
+  leftcorner  <- c(passfrom_lc, countfrom_lc)
+  rightcorner  <- c(passfrom_rc, countfrom_rc)
+  lowpost  <- c(passfrom_lp, countfrom_lp)
+  highpost  <- c(passfrom_hp, countfrom_hp)
+  
+  fgp_df <<- data.frame(rbind(topofkey, leftwing, rightwing, leftcorner, rightcorner, lowpost, highpost))
+  
+  
 }
 
 

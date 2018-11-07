@@ -243,8 +243,8 @@ createAreas <- function() {
     }
     
   }
-  areas$pass_area <- as.factor(areas$pass_area)
-  areas$poss_area <- as.factor(areas$poss_area)
+  #areas$pass_area <- as.factor(areas$pass_area)
+  #areas$poss_area <- as.factor(areas$poss_area)
 }
 
 

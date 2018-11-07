@@ -6,6 +6,8 @@
 source("_function_fullcourt.R")
 
 library(dplyr)
+library(party)
+
 
 #Loads data set into data frame
 cleaned <- read.csv("cleaned_data.csv")
@@ -104,42 +106,6 @@ areasAlt <- function(x,y) {
 }
 
 ###########################################################################
-#
-###########################################################################
-getFG_pass_from <- function(df) {
-  #get FG pct of all shots when player passed from area on court
-  passfrom_top <- mean(df[which(df$pass_area == 'top_key'),31])
-  passfrom_lw <- mean(df[which(df$pass_area == 'left_wing'),31])
-  passfrom_rw <- mean(df[which(df$pass_area == 'right_wing'),31])
-  passfrom_lc <- mean(df[which(df$pass_area == 'left_corner'),31])
-  passfrom_rc <- mean(df[which(df$pass_area == 'right_corner'),31])
-  passfrom_lp <- mean(df[which(df$pass_area == 'low_post'),31])
-  passfrom_hp <- mean(df[which(df$pass_area == 'high_post'),31])
-  
-  countfrom_top <- nrow(df[which(df$pass_area == 'top_key'),])
-  countfrom_lw <- nrow(df[which(df$pass_area == 'left_wing'),])
-  countfrom_rw <- nrow(df[which(df$pass_area == 'right_wing'),])
-  countfrom_lc <- nrow(df[which(df$pass_area == 'left_corner'),])
-  countfrom_rc <- nrow(df[which(df$pass_area == 'right_corner'),])
-  countfrom_lp <- nrow(df[which(df$pass_area == 'low_post'),])
-  countfrom_hp <- nrow(df[which(df$pass_area == 'high_post'),])
-  
-  topofkey  <- c(passfrom_top, countfrom_top)
-  leftwing  <- c(passfrom_lw, countfrom_lw)
-  rightwing  <- c(passfrom_rw, countfrom_rw)
-  leftcorner  <- c(passfrom_lc, countfrom_lc)
-  rightcorner  <- c(passfrom_rc, countfrom_rc)
-  lowpost  <- c(passfrom_lp, countfrom_lp)
-  highpost  <- c(passfrom_hp, countfrom_hp)
-  
-  fgp_df <<- data.frame(rbind(topofkey, leftwing, rightwing, leftcorner, rightcorner, lowpost, highpost))
-  
-  
-}
-
-
-
-###########################################################################
 #Transforms all shows to be on Left basket
 ##########################################################################
 
@@ -166,15 +132,23 @@ areas$pass_area <- as.factor(areas$pass_area)
 areas$poss_area <- as.factor(areas$poss_area)
 
 ###################################################################
+#Get all shooters fg% in each area they shot in
+####################################################################
 allshootfgs <- areas %>%
   group_by(poss_area, shooter) %>% 
   summarise(mean = mean(made,na.rm=TRUE))
 
 ##################################################################
+#Gets different player's dfs as passers
+#################################################################
 Lebron <- getPlayer("LeBron James", areas)
 SteveNash <- getPlayer("Steve Nash", areas)
 KD <- getPlayer("Kevin Durant", areas)
 Steph <- getPlayer("Stephen Curry", areas)
+
+###############################################################
+#Group player's passes by area passed to and calculate fg% of all shooters combined in that area
+###############################################################
 
 Lebron_grouped <- Lebron %>% 
   group_by(pass_area) %>% 
@@ -183,3 +157,23 @@ Lebron_grouped <- Lebron %>%
 Steph_grouped <- Steph %>% 
   group_by(pass_area) %>% 
   summarise(mean = mean(made, na.rm = TRUE), freq = n())
+
+
+
+##################################################################
+#Gets df of all passes and that shooter's fg% when recieving the ball in that area
+#For histogram
+#################################################################
+Lebron_shooters_fgp <- Lebron %>%
+  rowwise() %>%
+  mutate(shooter_fgp = )
+
+
+################################################################
+#Predicting where Lebron will pass
+#And FG% of shooter of that pass
+################################################################
+
+var_imp_select <- ctree(made~ ., Lebron)
+plot(var_imp_select)
+

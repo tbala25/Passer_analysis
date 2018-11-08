@@ -120,6 +120,8 @@ subsetR$poss_y<-50 - subsetR$poss_y
 
 transformed <- data.frame(rbind(subsetL, subsetR))
 
+transformed[is.na(transformed$pass_shot_clock), ]$pass_shot_clock <- transformed[is.na(transformed$pass_shot_clock),]$pass_game_clock
+
 #####################################################################
 #Gets areas for all rows
 #####################################################################
@@ -134,9 +136,9 @@ areas$poss_area <- as.factor(areas$poss_area)
 ###################################################################
 #Get all shooters fg% in each area they shot in
 ####################################################################
-allshootfgs <- areas %>%
-  group_by(poss_area, shooter) %>% 
-  summarise(mean = mean(made,na.rm=TRUE))
+# allshootfgs <- areas %>%
+#   group_by(poss_area, shooter) %>% 
+#   summarise(mean = mean(made,na.rm=TRUE))
 
 ##################################################################
 #Gets different player's dfs as passers
@@ -145,6 +147,8 @@ Lebron <- getPlayer("LeBron James", areas)
 SteveNash <- getPlayer("Steve Nash", areas)
 KD <- getPlayer("Kevin Durant", areas)
 Steph <- getPlayer("Stephen Curry", areas)
+Ben <- getPlayer("Ben McLemore", areas)
+
 
 ###############################################################
 #Group player's passes by area passed to and calculate fg% of all shooters combined in that area
@@ -157,6 +161,20 @@ Lebron_grouped <- Lebron %>%
 Steph_grouped <- Steph %>% 
   group_by(pass_area) %>% 
   summarise(mean = mean(made, na.rm = TRUE), freq = n())
+
+
+
+Ben_fgp <- Ben %>%
+  group_by(pass_area) %>%
+  summarise(mean = mean(made, na.rm = TRUE), freq = n())
+
+Ben_ndd <- Ben %>%
+  group_by(pass_area) %>%
+  summarise(mean = mean(ndd, na.rm = TRUE), freq = n())
+
+Ben_dribbles <- Ben %>%
+  group_by(pass_area) %>%
+  summarise(mean = mean(dribbles, na.rm = TRUE), freq = n())
 
 
 
@@ -176,4 +194,61 @@ Lebron_shooters_fgp <- Lebron %>%
 
 var_imp_select <- ctree(made~ ., Lebron)
 plot(var_imp_select)
+
+selected_var <- transformed %>%
+  na.omit() %>%
+  select("quarter", "pass_x", "pass_y", "pass_distance", "pass_shot_clock", "pass_game_clock", "poss_x", "poss_y", "dribbles", "distance_travelled", "made",  "ndd")
+
+
+selected_small <- transformed %>%
+  na.omit() %>%
+  select("pass_distance", "pass_shot_clock", "pass_game_clock", "dribbles", "distance_travelled", "made",  "ndd")
+
+
+var_imp_select <- ctree(made~ ., selected_var)
+plot(var_imp_select)
+
+#Elbow Method for finding the optimal number of clusters
+#set.seed(4)
+# Compute and plot wss for k = 2 to k = 15.
+k.max <- 10
+data <- selected_small
+wss <- sapply(1:k.max, 
+              function(k){kmeans(data, k, nstart=30,iter.max = 15 )$tot.withinss})
+wss
+plot(1:k.max, wss,
+     type="b", pch = 19, frame = FALSE, 
+     xlab="Number of clusters K",
+     ylab="Total within-clusters sum of squares")
+
+
+clusters <- kmeans(data,3, nstart = 15)
+plot(clusters)
+
+transformed2 <- transformed %>% na.omit()
+
+transformed2$three_clust <- clusters$cluster
+write.csv(transformed2, "pass_clustered_v1.csv")
+
+#################################################################################
+#################################################################################
+
+smp_size <- floor(.8 * nrow(Ben))
+set.seed(123)
+train_ind <- sample(seq_len(nrow(Ben)), size = smp_size)
+
+train <- Ben[train_ind,]
+test <- Ben[-train_ind,]
+
+mylogit <- glm(made ~ ndd + pass_distance + pass_shot_clock + dribbles + distance_travelled + poss_area + pass_area, data = train, family = "binomial" )
+summary(mylogit)
+confint(mylogit)
+confint.default(mylogit)
+exp(coef(mylogit))
+
+exp(cbind(OR = coef(mylogit), confint(mylogit)))
+
+test$predict <- predict(mylogit, newdata = test, type = "response")
+test$p1 <- ifelse(test$predict > .45, 1, 0)
+tp <- nrow(test[test$p1 == test$made && 1,])
 

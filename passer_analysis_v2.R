@@ -7,6 +7,8 @@ source("_function_fullcourt.R")
 
 library(dplyr)
 library(party)
+library(cutpointr)
+library(randomForest)
 
 
 #Loads data set into data frame
@@ -143,10 +145,10 @@ areas$poss_area <- as.factor(areas$poss_area)
 ##################################################################
 #Gets different player's dfs as passers
 #################################################################
-Lebron <- getPlayer("LeBron James", areas)
-SteveNash <- getPlayer("Steve Nash", areas)
-KD <- getPlayer("Kevin Durant", areas)
-Steph <- getPlayer("Stephen Curry", areas)
+#Lebron <- getPlayer("LeBron James", areas)
+#SteveNash <- getPlayer("Steve Nash", areas)
+#KD <- getPlayer("Kevin Durant", areas)
+#Steph <- getPlayer("Stephen Curry", areas)
 Ben <- getPlayer("Ben McLemore", areas)
 
 
@@ -154,13 +156,13 @@ Ben <- getPlayer("Ben McLemore", areas)
 #Group player's passes by area passed to and calculate fg% of all shooters combined in that area
 ###############################################################
 
-Lebron_grouped <- Lebron %>% 
-  group_by(pass_area) %>% 
-  summarise(mean = mean(made, na.rm = TRUE), freq = n())
-
-Steph_grouped <- Steph %>% 
-  group_by(pass_area) %>% 
-  summarise(mean = mean(made, na.rm = TRUE), freq = n())
+# Lebron_grouped <- Lebron %>% 
+#   group_by(pass_area) %>% 
+#   summarise(mean = mean(made, na.rm = TRUE), freq = n())
+# 
+# Steph_grouped <- Steph %>% 
+#   group_by(pass_area) %>% 
+#   summarise(mean = mean(made, na.rm = TRUE), freq = n())
 
 
 
@@ -182,9 +184,9 @@ Ben_dribbles <- Ben %>%
 #Gets df of all passes and that shooter's fg% when recieving the ball in that area
 #For histogram
 #################################################################
-Lebron_shooters_fgp <- Lebron %>%
-  rowwise() %>%
-  mutate(shooter_fgp = )
+# Lebron_shooters_fgp <- Lebron %>%
+#   rowwise() %>%
+#   mutate(shooter_fgp = )
 
 
 ################################################################
@@ -192,8 +194,8 @@ Lebron_shooters_fgp <- Lebron %>%
 #And FG% of shooter of that pass
 ################################################################
 
-var_imp_select <- ctree(made~ ., Lebron)
-plot(var_imp_select)
+# var_imp_select <- ctree(made~ ., Lebron)
+# plot(var_imp_select)
 
 selected_var <- transformed %>%
   na.omit() %>%
@@ -232,15 +234,15 @@ write.csv(transformed2, "pass_clustered_v1.csv")
 
 #################################################################################
 #################################################################################
-
-smp_size <- floor(.8 * nrow(Ben))
+data <- areas
+smp_size <- floor(.8 * nrow(data))
 set.seed(123)
-train_ind <- sample(seq_len(nrow(Ben)), size = smp_size)
+train_ind <- sample(seq_len(nrow(data)), size = smp_size)
 
-train <- Ben[train_ind,]
-test <- Ben[-train_ind,]
-
-mylogit <- glm(made ~ ndd + pass_distance + pass_shot_clock + dribbles + distance_travelled + poss_area + pass_area, data = train, family = "binomial" )
+train <- data[train_ind,]
+test <- data[-train_ind,]
+######################################################################################
+mylogit <- glm(made ~ ndd + pass_distance + pass_shot_clock + dribbles + distance_travelled + poss_area + pass_area + shooter_position + defender_position + passer_position , data = train, family = "binomial" )
 summary(mylogit)
 confint(mylogit)
 confint.default(mylogit)
@@ -249,6 +251,31 @@ exp(coef(mylogit))
 exp(cbind(OR = coef(mylogit), confint(mylogit)))
 
 test$predict <- predict(mylogit, newdata = test, type = "response")
-test$p1 <- ifelse(test$predict > .45, 1, 0)
-tp <- nrow(test[test$p1 == test$made && 1,])
+test$p1 <- ifelse(test$predict > .40, 1, 0)
+
+tp <- nrow(test[test$made == 1 & test$p1 == 1,])
+tn <- nrow(test[test$made == 0 & test$p1 == 0,])
+fp <- nrow(test[test$made == 0 & test$p1 == 1,])
+fn <- nrow(test[test$made == 1 & test$p1 == 0,])
+
+precision = tp/(tp+fp)
+recall = tp/(tp+fn)
+
+fp_mean <- mean(test[test$made == 0 & test$p1 == 1,]$predict, na.rm = TRUE)
+tp_mean <- mean(test[test$made == 1 & test$p1 == 1,]$predict, na.rm = TRUE)
+fn_mean <- mean(test[test$made == 1 & test$p1 == 0,]$predict, na.rm = TRUE)
+tn_mean <- mean(test[test$made == 0 & test$p1 == 0,]$predict, na.rm = TRUE)
+
+nrow(test[test$made == 0,])
+
+fp_df <- test[test$made == 0 & test$p1 == 1,]
+hist(fp_df$ndd, na.rm = TRUE)
+
+fn_df <- test[test$made == 1 & test$p1 == 0,]
+hist(fn_df$ndd, na.rm = TRUE)
+
+
+
+#############################################
+classifier <- randomForest(formula = made ~ ndd + pass_distance + pass_shot_clock + dribbles + distance_travelled + poss_area + pass_area + shooter_position + defender_position + passer_position , data = train, na.action = na.exclude)
 

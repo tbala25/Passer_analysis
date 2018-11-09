@@ -6,10 +6,10 @@
 source("_function_fullcourt.R")
 
 library(dplyr)
-library(party)
-library(cutpointr)
+#library(party)
+#library(cutpointr)
 library(randomForest)
-
+library(e1071)
 
 #Loads data set into data frame
 cleaned <- read.csv("cleaned_data.csv")
@@ -130,17 +130,18 @@ transformed[is.na(transformed$pass_shot_clock), ]$pass_shot_clock <- transformed
 
 areas <- transformed %>%
   rowwise() %>%
-  mutate(poss_area = areasAlt(poss_x, poss_y),pass_area = areasAlt(pass_x, pass_y))
+  mutate(poss_area = areasAlt(poss_x, poss_y),pass_area = areasAlt(pass_x, pass_y), shot_area = areasAlt(pass_x, pass_y))
 
 areas$pass_area <- as.factor(areas$pass_area)
 areas$poss_area <- as.factor(areas$poss_area)
+areas$shot_area <- as.factor(areas$shot_area)
 
 ###################################################################
 #Get all shooters fg% in each area they shot in
 ####################################################################
-# allshootfgs <- areas %>%
-#   group_by(poss_area, shooter) %>% 
-#   summarise(mean = mean(made,na.rm=TRUE))
+allshootfgs <- areas %>%
+  group_by(shot_area, shooter) %>%
+  summarise(mean = mean(made,na.rm=TRUE))
 
 ##################################################################
 #Gets different player's dfs as passers
@@ -234,15 +235,18 @@ write.csv(transformed2, "pass_clustered_v1.csv")
 
 #################################################################################
 #################################################################################
-data <- areas
-smp_size <- floor(.8 * nrow(data))
+##
+new_areas <- merge(areas, allshootfgs, on = c('shooter', 'shot_area') )
+
+data <- new_areas
+smp_size <- floor(.7 * nrow(data))
 set.seed(123)
 train_ind <- sample(seq_len(nrow(data)), size = smp_size)
 
 train <- data[train_ind,]
 test <- data[-train_ind,]
 ######################################################################################
-mylogit <- glm(made ~ ndd + pass_distance + pass_shot_clock + dribbles + distance_travelled + poss_area + pass_area + shooter_position + defender_position + passer_position , data = train, family = "binomial" )
+mylogit <- glm(made ~ ndd + pass_distance  + dribbles + distance_travelled + poss_area + pass_area + shooter_position + defender_position + passer_position + mean , data = train, family = "binomial" )
 summary(mylogit)
 confint(mylogit)
 confint.default(mylogit)
@@ -251,7 +255,7 @@ exp(coef(mylogit))
 exp(cbind(OR = coef(mylogit), confint(mylogit)))
 
 test$predict <- predict(mylogit, newdata = test, type = "response")
-test$p1 <- ifelse(test$predict > .40, 1, 0)
+test$p1 <- ifelse(test$predict > .45, 1, 0)
 
 tp <- nrow(test[test$made == 1 & test$p1 == 1,])
 tn <- nrow(test[test$made == 0 & test$p1 == 0,])
@@ -260,6 +264,8 @@ fn <- nrow(test[test$made == 1 & test$p1 == 0,])
 
 precision = tp/(tp+fp)
 recall = tp/(tp+fn)
+correctness = (tp + tn) /nrow(test)
+f1 = (2*precision*recall)/(precision+recall)
 
 fp_mean <- mean(test[test$made == 0 & test$p1 == 1,]$predict, na.rm = TRUE)
 tp_mean <- mean(test[test$made == 1 & test$p1 == 1,]$predict, na.rm = TRUE)
@@ -279,3 +285,5 @@ hist(fn_df$ndd, na.rm = TRUE)
 #############################################
 classifier <- randomForest(formula = made ~ ndd + pass_distance + pass_shot_clock + dribbles + distance_travelled + poss_area + pass_area + shooter_position + defender_position + passer_position , data = train, na.action = na.exclude)
 
+
+svm1 <- svm(made ~ ndd + pass_distance + pass_shot_clock + dribbles + distance_travelled + poss_area + pass_area + shooter_position + defender_position + passer_position, data = train, na.action = na.omit)
